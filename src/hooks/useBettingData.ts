@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { InPlayMatch, MarketState, MarketData, SubscriptionPayload, RestResponse } from '../types/betting';
 
-const REST_ENDPOINT = 'https://requested-mileage-mug-guardian.trycloudflare.com/inplay-matches';
+const REST_ENDPOINT = 'https://directly-proud-occasional-self.trycloudflare.com/inplay-matches';
 
 export const useBettingData = () => {
   const [matches, setMatches] = useState<InPlayMatch[]>([]);
