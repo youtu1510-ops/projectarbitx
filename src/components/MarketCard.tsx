@@ -1,175 +1,119 @@
 import React from 'react';
-import { Clock, TrendingUp, AlertTriangle } from 'lucide-react';
 import { MarketState, Runner } from '../types/betting';
+import { SoccerBall } from './SoccerBall';
+import { AlertTriangle, Clock } from 'lucide-react';
 
 interface MarketCardProps {
   market: MarketState;
   changes: Map<string, any>;
+  onRemove: (marketId: string) => void;
 }
 
-export const MarketCard: React.FC<MarketCardProps> = ({ market, changes }) => {
+// Helper to get the best back and lay odds for a runner
+const getBestOdds = (runner: Runner) => {
+  const bestBack = runner.bdatb.length > 0 ? runner.bdatb[0] : { odds: 0 };
+  const bestLay = runner.bdatl.length > 0 ? runner.bdatl[0] : { odds: 0 };
+  return { bestBack, bestLay };
+};
+
+// Helper to calculate the arbitrage opportunity
+const calculateArbitrage = (runners: Runner[]) => {
+  if (runners.length < 2) return 0;
+
+  const odds = runners.map(r => getBestOdds(r).bestBack.odds);
+  const inverseOdds = odds.reduce((acc, odd) => acc + (1 / (odd || 1)), 0);
+  
+  if (inverseOdds === 0) return 0;
+
+  return (1 - inverseOdds) * 100;
+};
+
+export const MarketCard: React.FC<MarketCardProps> = ({ market, changes, onRemove }) => {
   const formatTime = (timestamp: number) => {
-    return new Date(timestamp).toLocaleTimeString();
-  };
-
-  const formatOdds = (odds: number) => {
-    return odds > 0 ? odds.toFixed(2) : '-';
-  };
-
-  const formatAmount = (amount: number) => {
-    if (amount >= 1000) {
-      return `${(amount / 1000).toFixed(1)}k`;
-    }
-    return amount.toFixed(0);
+    return new Date(timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
   };
 
   const getRunnerName = (runner: Runner) => {
     const { id, hc } = runner;
-    
-    // For match odds, try to map selection IDs to names
     if (market.marketDefinition?.marketType === 'MATCH_ODDS') {
-      const nameMap: Record<string, string> = {
-        '47972': 'Home',
-        '47973': 'Away',
-        '58805': 'Draw'
-      };
-      return nameMap[id] || `Selection ${id}`;
+      const nameMap: Record<string, string> = { '47972': 'Home', '47973': 'Away', '58805': 'Draw' };
+      return nameMap[id] || `Sel ${id}`;
     }
-    
-    // For totals/handicaps, format with handicap value
     if (hc !== null && hc !== undefined) {
       const isOver = parseFloat(id) % 2 === 0;
       return `${isOver ? 'Over' : 'Under'} ${Math.abs(hc)}`;
     }
-    
     return `Sel ${id}`;
   };
 
-  const getChangeAnimation = (key: string) => {
-    const change = changes.get(key);
-    if (!change) return '';
-    return change === 'up' ? 'animate-flash-green' : 'animate-flash-red';
-  };
+  const allRunners = Array.from(market.runners.values());
+  const arbitrage = calculateArbitrage(allRunners);
 
-  const isLive = market.marketDefinition?.inPlay && market.status === 'OPEN';
   const isSuspended = market.status === 'SUSPENDED';
 
   return (
-    <div className="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow duration-300">
-      {/* Header */}
-      <div className="card-body p-4">
-        <div className="flex justify-between items-start mb-3">
-          <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1">
-              {isLive && (
-                <div className="badge badge-error badge-sm animate-pulse-slow">
-                  <div className="w-2 h-2 bg-current rounded-full mr-1"></div>
-                  LIVE
-                </div>
-              )}
-              {isSuspended && (
-                <div className="badge badge-warning badge-sm">
-                  <AlertTriangle className="w-3 h-3 mr-1" />
-                  SUSPENDED
-                </div>
-              )}
-              <span className="badge badge-outline badge-sm">
-                {market.marketDefinition?.marketType || 'Unknown'}
-              </span>
-            </div>
-            
-            <h3 className="card-title text-sm font-semibold">
-              {market.mainEventName}
-            </h3>
-            
-            <p className="text-xs text-base-content/70">
-              {market.marketNameWithParents}
-            </p>
-            
-            <div className="flex items-center gap-1 mt-1 text-xs text-base-content/60">
-              <Clock className="w-3 h-3" />
-              {formatTime(market.mainEventStartTime)}
-            </div>
+    <div className="bg-gray-800 text-white p-4 rounded-lg shadow-lg mb-4 relative overflow-hidden">
+      {isSuspended && (
+        <div className="absolute inset-0 bg-black bg-opacity-40 backdrop-blur-sm z-10 flex items-center justify-center">
+          <div className="flex items-center gap-2 bg-yellow-500/20 text-yellow-300 px-3 py-1 rounded-full">
+            <AlertTriangle className="w-4 h-4"/>
+            <span className="font-semibold text-sm">SUSPENDED</span>
           </div>
         </div>
+      )}
 
-        {/* Runners */}
-        <div className="space-y-3">
-          {Array.from(market.runners.entries()).map(([runnerId, runner]) => (
-            <div key={runnerId} className="border border-base-300 rounded-lg p-3">
-              <div className="flex justify-between items-center mb-2">
-                <span className="font-medium text-sm">
-                  {getRunnerName(runner)}
-                </span>
-                {runner.tv && runner.tv > 0 && (
-                  <div className="flex items-center gap-1 text-xs text-base-content/60">
-                    <TrendingUp className="w-3 h-3" />
-                    {market.currency} {formatAmount(runner.tv)}
-                  </div>
-                )}
+      <div className="flex justify-between items-center mb-2">
+        <div className="flex items-center">
+          <SoccerBall className="w-5 h-5 mr-3 text-gray-400" />
+          <div>
+            <p className="font-bold text-base">{market.mainEventName}</p>
+            <p className="text-xs text-gray-400">{market.marketNameWithParents}</p>
+          </div>
+        </div>
+        <div className={`font-bold text-lg ${arbitrage > 0 ? 'text-green-400' : 'text-red-400'}`}>
+          {arbitrage.toFixed(1)}%
+        </div>
+      </div>
+
+      <div className="mt-4">
+        {allRunners.map(runner => {
+          const { bestBack, bestLay } = getBestOdds(runner);
+          const runnerId = `${runner.id}-${runner.hc || 0}`;
+
+          const backChange = changes.get(`${runnerId}-back-0`);
+          const layChange = changes.get(`${runnerId}-lay-0`);
+
+          const backAnimation = backChange === 'up' ? 'animate-flash-green' : backChange === 'down' ? 'animate-flash-red' : '';
+          const layAnimation = layChange === 'up' ? 'animate-flash-green' : layChange === 'down' ? 'animate-flash-red' : '';
+          
+          return (
+            <div key={runner.id} className="grid grid-cols-3 items-center my-1 py-1">
+              <div className="col-span-1 text-sm text-gray-300">
+                {getRunnerName(runner)}
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                {/* Back (Blue) */}
-                <div>
-                  <h4 className="text-xs font-semibold text-blue-600 mb-1">Back</h4>
-                  <div className="space-y-1">
-                    {runner.bdatb.slice(0, 3).map((level, index) => (
-                      <div
-                        key={index}
-                        className={`bg-blue-50 border border-blue-200 rounded p-2 text-xs ${
-                          getChangeAnimation(`${runnerId}-back-${index}`)
-                        }`}
-                      >
-                        <div className="flex justify-between">
-                          <span className="font-semibold text-blue-800">
-                            {formatOdds(level.odds)}
-                          </span>
-                          <span className="text-blue-600">
-                            {formatAmount(level.amount)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+              <div className="col-span-2 grid grid-cols-2 gap-2 text-center">
+                <div className={`py-1 rounded ${backAnimation}`}>
+                  <p className="font-bold text-lg text-blue-400">{bestBack.odds > 0 ? bestBack.odds.toFixed(2) : '--'}</p>
+                  <p className="text-xs text-gray-500">Back</p>
                 </div>
-
-                {/* Lay (Pink) */}
-                <div>
-                  <h4 className="text-xs font-semibold text-pink-600 mb-1">Lay</h4>
-                  <div className="space-y-1">
-                    {runner.bdatl.slice(0, 3).map((level, index) => (
-                      <div
-                        key={index}
-                        className={`bg-pink-50 border border-pink-200 rounded p-2 text-xs ${
-                          getChangeAnimation(`${runnerId}-lay-${index}`)
-                        }`}
-                      >
-                        <div className="flex justify-between">
-                          <span className="font-semibold text-pink-800">
-                            {formatOdds(level.odds)}
-                          </span>
-                          <span className="text-pink-600">
-                            {formatAmount(level.amount)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <div className={`py-1 rounded ${layAnimation}`}>
+                  <p className="font-bold text-lg text-pink-400">{bestLay.odds > 0 ? bestLay.odds.toFixed(2) : '--'}</p>
+                  <p className="text-xs text-gray-500">Lay</p>
                 </div>
               </div>
             </div>
-          ))}
+          );
+        })}
+      </div>
+      
+      <div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-700 text-xs text-gray-400">
+        <div className="flex items-center gap-2">
+          <Clock className="w-3 h-3"/>
+          <span>{formatTime(market.mainEventStartTime)}</span>
         </div>
-
-        {/* Suspended Overlay */}
-        {isSuspended && (
-          <div className="absolute inset-0 bg-black bg-opacity-20 backdrop-blur-sm rounded-lg flex items-center justify-center">
-            <div className="bg-warning text-warning-content px-3 py-1 rounded-full text-sm font-semibold">
-              Market Suspended
-            </div>
-          </div>
-        )}
+        <button className="focus:outline-none hover:text-white" onClick={() => onRemove(market.id)}>
+          <span role="img" aria-label="delete">🗑️</span>
+        </button>
       </div>
     </div>
   );

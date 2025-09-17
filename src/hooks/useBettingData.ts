@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { InPlayMatch, MarketState, MarketData, SubscriptionPayload, RestResponse } from '../types/betting';
 
-const REST_ENDPOINT = 'https://disk-observe-better-retrieval.trycloudflare.com/inplay-matches';
+const REST_ENDPOINT = 'https://requested-mileage-mug-guardian.trycloudflare.com/inplay-matches';
 
 export const useBettingData = () => {
   const [matches, setMatches] = useState<InPlayMatch[]>([]);
@@ -224,6 +224,14 @@ export const useBettingData = () => {
     });
   }, []);
 
+  const removeMarket = useCallback((marketId: string) => {
+    setMarkets(prevMarkets => {
+      const newMarkets = new Map(prevMarkets);
+      newMarkets.delete(marketId);
+      return newMarkets;
+    });
+  }, []);
+
   const getMarketChanges = useCallback((marketId: string) => {
     return lastUpdateRef.current.get(marketId) || new Map();
   }, []);
@@ -248,6 +256,7 @@ export const useBettingData = () => {
     error,
     connectionStatus,
     getMarketChanges,
+    removeMarket,
     refetch: fetchMatches,
   };
 };

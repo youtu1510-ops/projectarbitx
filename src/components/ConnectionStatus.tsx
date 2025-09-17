@@ -1,5 +1,4 @@
 import React from 'react';
-import { Wifi, WifiOff, Loader2 } from 'lucide-react';
 
 interface ConnectionStatusProps {
   status: 'connecting' | 'connected' | 'disconnected';
@@ -7,43 +6,38 @@ interface ConnectionStatusProps {
 }
 
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ status, marketCount }) => {
-  const getStatusIcon = () => {
+  const getStatusIndicator = () => {
     switch (status) {
       case 'connected':
-        return <Wifi className="w-4 h-4" />;
+        return {
+          className: 'bg-success',
+          text: 'Connected'
+        };
       case 'connecting':
-        return <Loader2 className="w-4 h-4 animate-spin" />;
+        return {
+          className: 'bg-warning animate-pulse',
+          text: 'Connecting'
+        };
       case 'disconnected':
-        return <WifiOff className="w-4 h-4" />;
+      default:
+        return {
+          className: 'bg-error',
+          text: 'Disconnected'
+        };
     }
   };
 
-  const getStatusColor = () => {
-    switch (status) {
-      case 'connected':
-        return 'badge-success';
-      case 'connecting':
-        return 'badge-warning';
-      case 'disconnected':
-        return 'badge-error';
-    }
-  };
-
-  const getStatusText = () => {
-    switch (status) {
-      case 'connected':
-        return `Connected (${marketCount} markets)`;
-      case 'connecting':
-        return 'Connecting...';
-      case 'disconnected':
-        return 'Disconnected';
-    }
-  };
+  const { className, text } = getStatusIndicator();
 
   return (
-    <div className={`badge ${getStatusColor()} gap-2`}>
-      {getStatusIcon()}
-      <span className="text-xs">{getStatusText()}</span>
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-base-content/70">
+        {status === 'connected' ? `${marketCount} markets` : '--'}
+      </span>
+      <div className="flex items-center gap-2" title={text}>
+        <div className={`w-3 h-3 rounded-full ${className}`}></div>
+        <span className="text-sm font-semibold">{text}</span>
+      </div>
     </div>
   );
 };
