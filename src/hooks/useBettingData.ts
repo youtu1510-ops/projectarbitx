@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { InPlayMatch, MarketState, MarketData, SubscriptionPayload, RestResponse } from '../types/betting';
 
-const REST_ENDPOINT = 'https://directly-proud-occasional-self.trycloudflare.com/inplay-matches';
+const REST_ENDPOINT = 'https://postage-characteristic-they-repeated.trycloudflare.com/inplay-matches';
 
 export const useBettingData = () => {
   const [matches, setMatches] = useState<InPlayMatch[]>([]);
@@ -153,64 +153,53 @@ export const useBettingData = () => {
 
   const processMarketUpdate = useCallback((update: MarketData) => {
     if (!update.id) return;
-    
+  
     const marketId = update.id;
-    
+  
     setMarkets(prevMarkets => {
       const newMarkets = new Map(prevMarkets);
       const existingMarket = newMarkets.get(marketId);
-      
+  
+      // Clone the existing market to avoid direct mutation
+      const newMarketState: MarketState = existingMarket 
+        ? { ...existingMarket, ...update, lastUpdated: Date.now() }
+        : { ...update, runners: new Map(), lastUpdated: Date.now() };
+  
       // Track changes for animations
       const marketChanges = new Map<string, any>();
-      const lastMarketUpdate = lastUpdateRef.current.get(marketId) || new Map();
-      
-      // Create or update market state
-      const marketState: MarketState = {
-        ...update,
-        runners: new Map(),
-        lastUpdated: Date.now(),
-        ...existingMarket, // Preserve existing fields
-        ...update, // Override with new data
-      };
-      
+  
       // Process runners
       if (update.rc) {
+        const newRunners = new Map(newMarketState.runners);
         update.rc.forEach(runner => {
           const runnerId = `${runner.id}-${runner.hc || 0}`;
-          const existingRunner = existingMarket?.runners.get(runnerId);
-          
-          // Track odds changes for animations
+          const existingRunner = newRunners.get(runnerId);
+  
           if (existingRunner) {
-            // Compare bdatb (back) odds
-            runner.bdatb.forEach((level, index) => {
-              const existingLevel = existingRunner.bdatb[index];
+            // Track odds changes for animations
+            runner.bdatb?.forEach((level, index) => {
+              const existingLevel = existingRunner.bdatb?.[index];
               if (existingLevel && level.odds !== existingLevel.odds) {
                 const changeKey = `${runnerId}-back-${index}`;
                 marketChanges.set(changeKey, level.odds > existingLevel.odds ? 'up' : 'down');
               }
             });
-            
-            // Compare bdatl (lay) odds
-            runner.bdatl.forEach((level, index) => {
-              const existingLevel = existingRunner.bdatl[index];
+            runner.bdatl?.forEach((level, index) => {
+              const existingLevel = existingRunner.bdatl?.[index];
               if (existingLevel && level.odds !== existingLevel.odds) {
                 const changeKey = `${runnerId}-lay-${index}`;
                 marketChanges.set(changeKey, level.odds > existingLevel.odds ? 'up' : 'down');
               }
             });
           }
-          
-          marketState.runners.set(runnerId, {
-            ...existingRunner,
-            ...runner,
-          });
+          newRunners.set(runnerId, { ...(existingRunner || {}), ...runner });
         });
+        newMarketState.runners = newRunners;
       }
-      
+  
       // Store changes for animation triggers
       if (marketChanges.size > 0) {
         lastUpdateRef.current.set(marketId, marketChanges);
-        // Clear changes after animation duration
         setTimeout(() => {
           const currentChanges = lastUpdateRef.current.get(marketId);
           if (currentChanges === marketChanges) {
@@ -218,8 +207,8 @@ export const useBettingData = () => {
           }
         }, 600);
       }
-      
-      newMarkets.set(marketId, marketState);
+  
+      newMarkets.set(marketId, newMarketState);
       return newMarkets;
     });
   }, []);

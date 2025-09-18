@@ -22,10 +22,6 @@ function App() {
   const [sortBy, setSortBy] = useState('mainEventStartTime');
   const [showInPlayOnly, setShowInPlayOnly] = useState(false);
 
-  const getMarketUniqueId = (market: MarketState) => {
-    return `${market.mainEventName}-${market.marketNameWithParents}`;
-  };
-
   const allMarkets = useMemo(() => Array.from(markets.values()), [markets]);
 
   const fuse = useMemo(() => new Fuse(allMarkets, {
@@ -50,36 +46,46 @@ function App() {
     return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b));
 }, [allMarkets]);
 
-  const filteredMarkets = useMemo(() => {
-    let marketsToFilter = allMarkets;
+const filteredMarkets = useMemo(() => {
+  let marketsToFilter = allMarkets;
 
-    if (searchQuery) {
-        marketsToFilter = fuse.search(searchQuery).map(result => result.item);
+  if (searchQuery) {
+    marketsToFilter = fuse.search(searchQuery).map(result => result.item);
+  }
+
+  const marketFilterPredicate = (market: MarketState) => {
+    const isInPlay = market.marketDefinition?.inPlay === true;
+    const sportFilter = selectedSport === '' || market.mainEventName.startsWith(selectedSport);
+    const marketNameFilter = selectedMarketName === '' || market.marketNameWithParents === selectedMarketName;
+    const inPlayFilter = !showInPlayOnly || isInPlay;
+    const goalLinesFilter = !showInPlayOnly || market.marketNameWithParents !== 'Goal Lines';
+    return sportFilter && marketNameFilter && inPlayFilter && goalLinesFilter;
+  };
+
+  let filtered = marketsToFilter.filter(marketFilterPredicate);
+
+  if (showInPlayOnly) {
+    const seen = new Set();
+    filtered = filtered.filter(market => {
+      if (seen.has(market.mainEventName)) {
+        return false;
+      } else {
+        seen.add(market.mainEventName);
+        return true;
+      }
+    });
+  }
+
+  return filtered.sort((a, b) => {
+    if (sortBy === 'mainEventStartTime') {
+      return a.mainEventStartTime - b.mainEventStartTime;
     }
-
-    return marketsToFilter
-      .filter((market) => {
-        const isInPlay = market.marketDefinition?.inPlay == true;
-        return (
-          (selectedSport === '' || market.mainEventName.startsWith(selectedSport)) &&
-          (selectedMarketName === '' || market.marketNameWithParents === selectedMarketName) &&
-          (!showInPlayOnly || isInPlay)
-        );
-      })
-      .sort((a, b) => {
-        if (sortBy === 'mainEventStartTime') {
-          return a.mainEventStartTime - b.mainEventStartTime;
-        }
-        if (sortBy === 'mainEventName') {
-          return a.mainEventName.localeCompare(b.mainEventName);
-        }
-        return 0;
-      })
-      .filter(
-        (market, index, self) =>
-          index === self.findIndex((m) => getMarketUniqueId(m) === getMarketUniqueId(market))
-      );
-  }, [searchQuery, selectedSport, selectedMarketName, sortBy, showInPlayOnly, allMarkets, fuse]);
+    if (sortBy === 'mainEventName') {
+      return a.mainEventName.localeCompare(b.mainEventName);
+    }
+    return 0;
+  });
+}, [searchQuery, selectedSport, selectedMarketName, sortBy, showInPlayOnly, allMarkets, fuse]);
 
 
   if (loading) {
@@ -220,7 +226,7 @@ function App() {
           <div className="space-y-4">
             {filteredMarkets.map(market => (
               <MarketCard
-                key={getMarketUniqueId(market)}
+                key={`${market.mainEventName}-${market.marketNameWithParents}`}
                 market={market}
                 changes={getMarketChanges(market.id)}
                 onRemove={() => removeMarket(market.id)}

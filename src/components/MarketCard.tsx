@@ -49,20 +49,12 @@ export const MarketCard: React.FC<MarketCardProps> = ({ market, changes, onRemov
   const allRunners = Array.from(market.runners.values());
   const arbitrage = calculateArbitrage(allRunners);
 
-  const isSuspended = market.status === 'SUSPENDED';
+  const isSuspended = market.marketDefinition?.status === 'SUSPENDED';
+  const status = market.marketDefinition?.status;
 
   return (
-    <div className="bg-gray-800 text-white p-4 rounded-lg shadow-lg mb-4 relative overflow-hidden">
-      {isSuspended && (
-        <div className="absolute inset-0 bg-black bg-opacity-40 backdrop-blur-sm z-10 flex items-center justify-center">
-          <div className="flex items-center gap-2 bg-yellow-500/20 text-yellow-300 px-3 py-1 rounded-full">
-            <AlertTriangle className="w-4 h-4"/>
-            <span className="font-semibold text-sm">SUSPENDED</span>
-          </div>
-        </div>
-      )}
-
-      <div className="flex justify-between items-center mb-2">
+    <div className={`bg-gray-800 text-white p-4 rounded-lg shadow-lg mb-4 relative overflow-hidden transition-opacity ${isSuspended ? 'opacity-50' : ''}`}>
+      <div className="flex justify-between items-start mb-2">
         <div className="flex items-center">
           <SoccerBall className="w-5 h-5 mr-3 text-gray-400" />
           <div>
@@ -70,8 +62,20 @@ export const MarketCard: React.FC<MarketCardProps> = ({ market, changes, onRemov
             <p className="text-xs text-gray-400">{market.marketNameWithParents}</p>
           </div>
         </div>
-        <div className={`font-bold text-lg ${arbitrage > 0 ? 'text-green-400' : 'text-red-400'}`}>
-          {arbitrage.toFixed(1)}%
+        <div className="text-right">
+          <div className={`font-bold text-lg ${arbitrage > 0 ? 'text-green-400' : 'text-red-400'}`}>
+            {arbitrage.toFixed(1)}%
+          </div>
+          {status === 'OPEN' && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-500/20 text-green-300">
+                  OPEN
+              </span>
+          )}
+          {status === 'SUSPENDED' && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-300">
+                  SUSPENDED
+              </span>
+          )}
         </div>
       </div>
 
